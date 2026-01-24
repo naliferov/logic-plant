@@ -321,8 +321,6 @@ window.addEventListener('dblclick', (e) =&gt; {
   const t = e.target
   const classList = t.classList
   if (!t.classList.contains('dblclick')) return
-
-  //x('class-processor', t)
 })
 </div><div class="frame row">
 
@@ -342,11 +340,14 @@ window.addEventListener('dblclick', (e) =&gt; {
 <div contenteditable="plaintext-only" style="
 " class="code frame js-fn" id="show-hide">(x) =&gt; {
   x.f = (showHideBtn) =&gt; {
-    //const classList = showHideBtn.classList
-    console.log(showHideBtn)
+    const target = x.x('extract-value-from-class', { 
+      classList: showHideBtn.classList, 
+      startsWith: 'target--' 
+    })
 
-    //if (target) target.classList.toggle('hidden')
+    console.log(target)
   }
+    //if (target) target.classList.toggle('hidden')
 }</div></div><div class="frame row">
 
     <div class="circle click to-id--insert"></div><div>extract-value-from-class</div>

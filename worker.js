@@ -29,7 +29,6 @@ const log = (msg, addTime = false) => {
   console.log(str)
 }
 
-
 const processWorkers = async () => {
   const workers = await fs.readdir('workers')
   for (const worker of workers) {

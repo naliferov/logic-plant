@@ -1,6 +1,17 @@
 import { spawn } from 'node:child_process'
 
-export const processList = () => {
+export const log = (msg, addTime = false) => {
+  const str = addTime ? `${getTime()} ${msg}` : msg
+  console.log(str)
+}
+
+export const getTime = () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+export const getProcessList = () => {
   const { promise, resolve, reject } = Promise.withResolvers()
 
   const parseLine = (line) => {
@@ -8,7 +19,6 @@ export const processList = () => {
     return {
       user: parts[0],
       pid: Number(parts[1]),
-      mem: Number(parts[3]),
       command: parts.slice(10).join(' '),
     };
   }

@@ -1,15 +1,15 @@
 import fs from 'node:fs/promises'
 import { spawn } from 'node:child_process'
-import { processList, processKill, wait } from './utils.js'
+import { getProcessList, processKill, wait, getTime, log } from './utils.js'
 
-const runWorker = (worker) => {
+const getWorkerPid = async (worker) => {
   const path = `workers/${worker}`
-  const cmd = `
-    node "${path}/worker.js" > "${path}/worker.log" 2>&1 &
-    echo $! > "${path}/pid"
-  `;
-  const child = spawn('sh', ['-c', cmd], { detached: true, stdio: 'ignore' })
-  child.unref()
+  try {
+    const pid = await fs.readFile(`${path}/pid`, 'utf8')
+    if (pid) return pid.trim()
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
 }
 
 const isWorkerEnabled = async (worker) => {
@@ -18,29 +18,86 @@ const isWorkerEnabled = async (worker) => {
   return conf.enabled
 }
 
-const getTime = () => {
-  const pad = (n) => String(n).padStart(2, '0');
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+const isProcessActive = async (pid) => {
+  const processList = await getProcessList()
+  return processList[pid] ? true : false
 }
 
-const log = (msg, addTime = false) => {
-  const str = addTime ? `${getTime()} ${msg}` : msg
-  console.log(str)
+const runWorker = async(worker) => {
+  const path = `workers/${worker}`
+  const workerFile = `${path}/worker.js`
+  const logFile = await fs.open(`${path}/worker.log`, 'a')
+
+  const child = spawn('node', [workerFile], {
+    detached: true,
+    stdio: ['ignore', logFile.fd, logFile.fd],
+  })
+
+  const pid = child.pid
+
+  child.unref()
+  await logFile.close()
+
+  return pid
+}
+
+const processWorker = async (worker) => {
+  log(`[${worker}] worker`)
+
+  const path = `workers/${worker}`
+  const enabled = await isWorkerEnabled(worker)
+  const pid = await getWorkerPid(worker)
+
+  if (enabled) {
+    log(`is enabled`)
+
+    if (pid) {
+      let str = `pid [${pid}]`
+      if (await isProcessActive(pid)) str += ` active`
+      else {
+        str += ` not active. start [${worker}]`
+
+        const pid = await runWorker(worker)
+        if (pid) {
+          str += ` pid [${pid}] started`
+          await fs.writeFile(`${path}/pid`, pid.toString())
+        }
+      }
+      log(str)
+    } else {
+
+      log(`pid not found. so start [${worker}]`)
+      const pid = await runWorker(worker)
+      if (pid) {
+        log(` pid [${pid}]`)
+        await fs.writeFile(`${path}/pid`, pid)
+      }
+    }
+
+    log('\n', true)
+    return
+  }
+
+
+  log(`is disabled`)
+  // check that pid not in list
+
+  // find pid, check if process is running
+  //runWorker(worker)
+
+  log('\n', true)
 }
 
 const processWorkers = async () => {
   const workers = await fs.readdir('workers')
   for (const worker of workers) {
-    log(`Processing worker ${worker}`)
+    await processWorker(worker)
   }
-
-  log('\n', true)
 }
 
 while (true) {
   await processWorkers()
-  await wait(2000)
+  await wait(4000)
 }
 
 //const list = await processList()
